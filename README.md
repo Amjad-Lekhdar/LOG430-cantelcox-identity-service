@@ -41,6 +41,7 @@ On the VM:
 ```bash
 sudo apt update
 sudo apt install -y docker.io docker-compose-plugin
+sudo systemctl enable --now docker
 ```
 
 Create the runner user. The default username is defined in `.env`:
@@ -55,6 +56,16 @@ sudo usermod -aG sudo "$RUNNER_USER"
 sudo usermod -aG docker "$RUNNER_USER"
 su - "$RUNNER_USER"
 ```
+
+Verify Docker works for the runner user without `sudo`:
+
+```bash
+docker ps
+docker compose version
+```
+
+If this VM is an LXC container, Docker requires nesting to be enabled on the
+host before Docker can run reliably inside it.
 
 Then add a GitHub self-hosted runner from:
 

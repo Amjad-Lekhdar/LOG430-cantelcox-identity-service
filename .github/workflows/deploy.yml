@@ -21,10 +21,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show deployment target
+      - name: Verify deployment target
         run: |
           hostname
           pwd
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "Docker is not installed or is not available in PATH for this runner user."
+            echo "Install Docker on the VM/LXC and make sure the runner user can run docker without sudo."
+            exit 1
+          fi
           docker --version
           docker compose version
 
