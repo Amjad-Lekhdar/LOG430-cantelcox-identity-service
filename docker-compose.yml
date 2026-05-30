@@ -1,0 +1,8 @@
+services:
+  identity-service:
+    build: .
+    container_name: cantelcox-identity-service
+    ports:
+      - "8020:8020"
+    environment:
+      SERVICE_NAME: identity-service
