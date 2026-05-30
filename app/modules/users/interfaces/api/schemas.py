@@ -1,18 +1,26 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 
 class CreateUserRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
-    full_name: str = Field(min_length=1, max_length=160)
+    full_name: str = Field(
+        validation_alias=AliasChoices("full_name", "fullName"),
+        min_length=1,
+        max_length=160,
+    )
     role: str = Field(default="customer")
 
 
 class CreateAccountRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
-    full_name: str = Field(min_length=1, max_length=160)
+    full_name: str = Field(
+        validation_alias=AliasChoices("full_name", "fullName"),
+        min_length=1,
+        max_length=160,
+    )
     password: str = Field(min_length=8, max_length=128)
 
 

@@ -5,4 +5,4 @@ services:
     ports:
       - "8020:8020"
     environment:
-      SERVICE_NAME: identity-service
+      SERVICE_NAME: ${SERVICE_NAME:-identity-service}

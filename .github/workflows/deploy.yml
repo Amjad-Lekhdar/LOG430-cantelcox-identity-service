@@ -1,0 +1,48 @@
+name: CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: identity-service-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy identity service
+    runs-on:
+      - self-hosted
+      - linux
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show deployment target
+        run: |
+          hostname
+          pwd
+          docker --version
+          docker compose version
+
+      - name: Build and restart service
+        run: docker compose up --build -d --remove-orphans
+
+      - name: Wait for health endpoint
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8020/health; then
+              exit 0
+            fi
+            echo "Waiting for identity service health check... ${attempt}/30"
+            sleep 2
+          done
+          docker compose logs --tail=120 identity-service
+          exit 1
+
+      - name: Show running containers
+        if: always()
+        run: docker compose ps
