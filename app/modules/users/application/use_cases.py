@@ -1,9 +1,9 @@
 from uuid import UUID, uuid4
 
 from app.modules.users.domain.entities import User
-from app.modules.users.domain.services import UserDomainService
+from app.modules.users.domain.services import PasswordService, UserDomainService
 from app.modules.users.domain.value_objects import UserRole
-from app.modules.users.infrastructure.repositories import UserRepository
+from app.modules.users.infrastructure.repositories import AuthSessionRepository, UserRepository
 
 
 class CreateUserUseCase:
@@ -19,6 +19,51 @@ class CreateUserUseCase:
         )
         user = User(id=uuid4(), email=normalized_email, full_name=full_name, role=role)
         return self._repository.add(user)
+
+
+class CreateAccountUseCase:
+    def __init__(self, repository: UserRepository) -> None:
+        self._repository = repository
+
+    def execute(self, email: str, full_name: str, password: str, role: str = "customer") -> User:
+        normalized_email = UserDomainService.normalize_email(email)
+        UserRole(role)
+        UserDomainService.ensure_email_is_available(
+            self._repository.get_by_email(normalized_email),
+            normalized_email,
+        )
+        user = User(
+            id=uuid4(),
+            email=normalized_email,
+            full_name=full_name,
+            role=role,
+            password_hash=PasswordService.hash_password(password),
+        )
+        return self._repository.add(user)
+
+
+class LoginUseCase:
+    def __init__(self, user_repository: UserRepository, session_repository: AuthSessionRepository) -> None:
+        self._user_repository = user_repository
+        self._session_repository = session_repository
+
+    def execute(self, email: str, password: str) -> tuple[User, str] | None:
+        normalized_email = UserDomainService.normalize_email(email)
+        user = self._user_repository.get_by_email(normalized_email)
+        if user is None or not user.active:
+            return None
+        if not PasswordService.verify_password(password, user.password_hash):
+            return None
+        token = self._session_repository.create(user.id)
+        return user, token
+
+
+class LogoutUseCase:
+    def __init__(self, session_repository: AuthSessionRepository) -> None:
+        self._session_repository = session_repository
+
+    def execute(self, token: str) -> bool:
+        return self._session_repository.delete(token)
 
 
 class ListUsersUseCase:

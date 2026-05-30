@@ -22,6 +22,9 @@ http://127.0.0.1:8020/docs
 
 ```text
 GET    /health
+POST   /v1/auth/accounts
+POST   /v1/auth/login
+POST   /v1/auth/logout
 POST   /v1/users
 GET    /v1/users
 GET    /v1/users/{user_id}

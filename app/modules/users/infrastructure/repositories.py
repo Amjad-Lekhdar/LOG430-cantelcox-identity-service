@@ -1,3 +1,4 @@
+import secrets
 from uuid import UUID, uuid5, NAMESPACE_URL
 
 from app.modules.users.domain.entities import User
@@ -37,3 +38,22 @@ class UserRepository:
 
 
 user_repository = UserRepository()
+
+
+class AuthSessionRepository:
+    def __init__(self) -> None:
+        self._sessions: dict[str, UUID] = {}
+
+    def create(self, user_id: UUID) -> str:
+        token = secrets.token_urlsafe(32)
+        self._sessions[token] = user_id
+        return token
+
+    def get_user_id(self, token: str) -> UUID | None:
+        return self._sessions.get(token)
+
+    def delete(self, token: str) -> bool:
+        return self._sessions.pop(token, None) is not None
+
+
+auth_session_repository = AuthSessionRepository()
