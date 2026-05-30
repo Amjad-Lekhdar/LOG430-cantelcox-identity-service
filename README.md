@@ -40,7 +40,7 @@ On the VM:
 
 ```bash
 sudo apt update
-sudo apt install -y docker.io docker-compose-plugin
+sudo apt install -y docker.io docker-compose
 sudo systemctl enable --now docker
 ```
 
@@ -61,7 +61,7 @@ Verify Docker works for the runner user without `sudo`:
 
 ```bash
 docker ps
-docker compose version
+docker compose version || docker-compose --version
 ```
 
 If this VM is an LXC container, Docker requires nesting to be enabled on the
@@ -76,7 +76,7 @@ Repository -> Settings -> Actions -> Runners -> New self-hosted runner
 Install it on the VM and run it as a service. The runner user must be able to run:
 
 ```bash
-docker compose up --build -d --remove-orphans
+scripts/deploy-compose.sh deploy
 ```
 
 After that, pushing to `main` will rebuild and restart the service on the VM.

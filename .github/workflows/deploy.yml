@@ -22,19 +22,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify deployment target
-        run: |
-          hostname
-          pwd
-          if ! command -v docker >/dev/null 2>&1; then
-            echo "Docker is not installed or is not available in PATH for this runner user."
-            echo "Install Docker on the VM/LXC and make sure the runner user can run docker without sudo."
-            exit 1
-          fi
-          docker --version
-          docker compose version
+        run: scripts/deploy-compose.sh ps
 
       - name: Build and restart service
-        run: docker compose up --build -d --remove-orphans
+        run: scripts/deploy-compose.sh deploy
 
       - name: Wait for health endpoint
         run: |
@@ -45,9 +36,9 @@ jobs:
             echo "Waiting for identity service health check... ${attempt}/30"
             sleep 2
           done
-          docker compose logs --tail=120 identity-service
+          scripts/deploy-compose.sh logs
           exit 1
 
       - name: Show running containers
         if: always()
-        run: docker compose ps
+        run: scripts/deploy-compose.sh ps
