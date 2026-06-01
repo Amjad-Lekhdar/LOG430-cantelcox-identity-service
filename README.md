@@ -17,6 +17,24 @@ Swagger:
 http://127.0.0.1:8020/docs
 ```
 
+## Run with PostgreSQL
+
+```bash
+docker compose up --build -d
+```
+
+The API listens on:
+
+```text
+http://127.0.0.1:8020
+```
+
+PostgreSQL runs as the `identity-db` service. User data is persisted in the
+Docker volume named `identity-db-data`.
+
+Default local database settings are in `.env`. Change the password before using
+this outside a local lab environment.
+
 ## Endpoints MVP
 
 ```text

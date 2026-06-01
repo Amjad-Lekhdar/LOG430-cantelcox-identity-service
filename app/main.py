@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.database import SessionLocal, init_db
+from app.modules.users.infrastructure.repositories import seed_admin_user
 from app.modules.users.interfaces.api.router import auth_router, router as users_router
 
 app = FastAPI(title="CanTelcoX Identity Service API", version="0.1.0")
@@ -15,6 +17,13 @@ app.add_middleware(
 
 app.include_router(users_router)
 app.include_router(auth_router)
+
+
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
+    with SessionLocal() as session:
+        seed_admin_user(session)
 
 
 @app.get("/health")

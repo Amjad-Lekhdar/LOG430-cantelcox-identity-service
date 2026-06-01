@@ -15,6 +15,7 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
     full_name: Mapped[str] = mapped_column(String(160), nullable=False)
     role: Mapped[str] = mapped_column(String(40), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

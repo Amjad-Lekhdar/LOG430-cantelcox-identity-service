@@ -1,9 +1,27 @@
+from typing import Protocol
 from uuid import UUID, uuid4
 
 from app.modules.users.domain.entities import User
 from app.modules.users.domain.services import PasswordService, UserDomainService
 from app.modules.users.domain.value_objects import UserRole
-from app.modules.users.infrastructure.repositories import AuthSessionRepository, UserRepository
+from app.modules.users.infrastructure.repositories import AuthSessionRepository
+
+
+class UserRepository(Protocol):
+    def add(self, user: User) -> User:
+        pass
+
+    def update(self, user: User) -> User:
+        pass
+
+    def list(self) -> list[User]:
+        pass
+
+    def get(self, user_id: UUID) -> User | None:
+        pass
+
+    def get_by_email(self, email: str) -> User | None:
+        pass
 
 
 class CreateUserUseCase:
