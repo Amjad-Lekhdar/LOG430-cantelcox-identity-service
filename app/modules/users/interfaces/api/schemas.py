@@ -35,6 +35,11 @@ class AuthResponse(BaseModel):
     user: "UserResponse"
 
 
+class OAuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
 class LogoutResponse(BaseModel):
     logged_out: bool
 

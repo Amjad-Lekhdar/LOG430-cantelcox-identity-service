@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.database import get_db_session
@@ -19,6 +20,7 @@ from app.modules.users.interfaces.api.schemas import (
     CreateAccountRequest,
     CreateUserRequest,
     LoginRequest,
+    OAuthTokenResponse,
     LogoutResponse,
     UpdateUserStatusRequest,
     UserResponse,
@@ -26,6 +28,7 @@ from app.modules.users.interfaces.api.schemas import (
 
 router = APIRouter(prefix="/v1/users", tags=["Users"])
 auth_router = APIRouter(prefix="/v1/auth", tags=["Auth"])
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/v1/auth/token")
 
 
 def get_user_repository(session: Session = Depends(get_db_session)) -> SQLAlchemyUserRepository:
@@ -36,13 +39,25 @@ def _user_response(user) -> UserResponse:
     return UserResponse(**user.__dict__)
 
 
-def _extract_bearer_token(authorization: str | None) -> str:
-    if authorization is None:
-        raise HTTPException(status_code=401, detail="Authorization header is required")
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or not token:
-        raise HTTPException(status_code=401, detail="Bearer token is required")
-    return token
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    user_repository: SQLAlchemyUserRepository = Depends(get_user_repository),
+) -> UserResponse:
+    user_id = auth_session_repository.get_user_id(token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid session token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user = user_repository.get(user_id)
+    if user is None or not user.active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive or missing user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return _user_response(user)
 
 
 @auth_router.post("/accounts", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -79,9 +94,32 @@ def login(
     return AuthResponse(access_token=token, user=_user_response(user))
 
 
+@auth_router.post("/token", response_model=OAuthTokenResponse)
+def token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    user_repository: SQLAlchemyUserRepository = Depends(get_user_repository),
+) -> OAuthTokenResponse:
+    result = LoginUseCase(user_repository, auth_session_repository).execute(
+        email=form_data.username,
+        password=form_data.password,
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    _, access_token = result
+    return OAuthTokenResponse(access_token=access_token)
+
+
+@auth_router.get("/me", response_model=UserResponse)
+def me(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
+    return current_user
+
+
 @auth_router.post("/logout", response_model=LogoutResponse)
-def logout(authorization: str | None = Header(default=None)) -> LogoutResponse:
-    token = _extract_bearer_token(authorization)
+def logout(token: str = Depends(oauth2_scheme)) -> LogoutResponse:
     logged_out = LogoutUseCase(auth_session_repository).execute(token)
     if not logged_out:
         raise HTTPException(status_code=401, detail="Invalid session token")

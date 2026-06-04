@@ -41,6 +41,8 @@ this outside a local lab environment.
 GET    /health
 POST   /v1/auth/accounts
 POST   /v1/auth/login
+POST   /v1/auth/token
+GET    /v1/auth/me
 POST   /v1/auth/logout
 POST   /v1/users
 GET    /v1/users
