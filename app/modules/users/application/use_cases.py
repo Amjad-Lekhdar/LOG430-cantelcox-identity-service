@@ -177,7 +177,6 @@ class RequestMfaUseCase:
 
         code = MfaService.generate_code()
         challenge = self._mfa_repository.create(user.id, code)
-        self._login_token_repository.delete(login_token)
         logger.info(
             "auth.mfa.request.created",
             extra={"user_id": str(user.id), "channel": normalized_channel},
