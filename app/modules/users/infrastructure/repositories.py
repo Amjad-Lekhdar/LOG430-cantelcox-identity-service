@@ -1,11 +1,12 @@
 import secrets
+from datetime import datetime, timezone
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.users.domain.services import PasswordService
-from app.modules.users.domain.entities import User
+from app.modules.users.domain.services import MfaService, PasswordService
+from app.modules.users.domain.entities import MfaChallenge, User
 from app.modules.users.infrastructure.models import UserModel
 
 
@@ -26,6 +27,7 @@ class SQLAlchemyUserRepository:
             return self.add(user)
         model.email = user.email
         model.full_name = user.full_name
+        model.phone_number = user.phone_number
         model.role = user.role
         model.password_hash = user.password_hash
         model.active = user.active
@@ -57,6 +59,7 @@ class SQLAlchemyUserRepository:
             id=str(user.id),
             email=user.email,
             full_name=user.full_name,
+            phone_number=user.phone_number,
             role=user.role,
             password_hash=user.password_hash,
             active=user.active,
@@ -70,6 +73,7 @@ class SQLAlchemyUserRepository:
             id=UUID(model.id),
             email=model.email,
             full_name=model.full_name,
+            phone_number=model.phone_number,
             role=model.role,
             password_hash=model.password_hash,
             active=model.active,
@@ -132,4 +136,59 @@ class AuthSessionRepository:
         return self._sessions.pop(token, None) is not None
 
 
+class MfaLoginTokenRepository:
+    def __init__(self) -> None:
+        self._tokens: dict[str, UUID] = {}
+
+    def create(self, user_id: UUID) -> str:
+        token = secrets.token_urlsafe(32)
+        self._tokens[token] = user_id
+        return token
+
+    def get_user_id(self, token: str) -> UUID | None:
+        return self._tokens.get(token)
+
+    def delete(self, token: str) -> bool:
+        return self._tokens.pop(token, None) is not None
+
+
+class MfaChallengeRepository:
+    def __init__(self, ttl_seconds: int = 300, max_attempts: int = 3) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._max_attempts = max_attempts
+        self._challenges: dict[str, MfaChallenge] = {}
+
+    def create(self, user_id: UUID, code: str) -> MfaChallenge:
+        challenge = MfaChallenge(
+            id=secrets.token_urlsafe(24),
+            user_id=user_id,
+            code_hash=MfaService.hash_code(code),
+            expires_at=MfaService.expires_at(self._ttl_seconds),
+            max_attempts=self._max_attempts,
+        )
+        self._challenges[challenge.id] = challenge
+        return challenge
+
+    def get(self, challenge_id: str) -> MfaChallenge | None:
+        challenge = self._challenges.get(challenge_id)
+        if challenge is None:
+            return None
+        if challenge.expires_at <= datetime.now(timezone.utc):
+            self.delete(challenge_id)
+            return None
+        return challenge
+
+    def record_failed_attempt(self, challenge: MfaChallenge) -> MfaChallenge:
+        challenge.attempts += 1
+        if challenge.attempts >= challenge.max_attempts:
+            challenge.blocked = True
+        self._challenges[challenge.id] = challenge
+        return challenge
+
+    def delete(self, challenge_id: str) -> bool:
+        return self._challenges.pop(challenge_id, None) is not None
+
+
 auth_session_repository = AuthSessionRepository()
+mfa_login_token_repository = MfaLoginTokenRepository()
+mfa_challenge_repository = MfaChallengeRepository()

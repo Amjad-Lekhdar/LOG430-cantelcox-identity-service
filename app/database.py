@@ -2,7 +2,7 @@ import os
 import time
 from collections.abc import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -26,11 +26,23 @@ def init_db(retries: int = 10, delay_seconds: int = 2) -> None:
     for attempt in range(1, retries + 1):
         try:
             Base.metadata.create_all(bind=engine)
+            _ensure_user_schema()
             return
         except Exception:
             if attempt == retries:
                 raise
             time.sleep(delay_seconds)
+
+
+def _ensure_user_schema() -> None:
+    inspector = inspect(engine)
+    if not inspector.has_table("identity_users"):
+        return
+    column_names = {column["name"] for column in inspector.get_columns("identity_users")}
+    if "phone_number" in column_names:
+        return
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE identity_users ADD COLUMN phone_number VARCHAR(40)"))
 
 
 def get_db_session() -> Generator[Session, None, None]:

@@ -9,6 +9,7 @@ class User:
     email: str
     full_name: str
     role: str
+    phone_number: str | None = None
     password_hash: str | None = field(default=None, repr=False)
     active: bool = field(default=True)
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
@@ -17,3 +18,15 @@ class User:
     def set_active(self, active: bool) -> None:
         self.active = active
         self.updated_at = datetime.now(timezone.utc)
+
+
+@dataclass
+class MfaChallenge:
+    id: str
+    user_id: UUID
+    code_hash: str = field(repr=False)
+    expires_at: datetime
+    max_attempts: int
+    attempts: int = 0
+    blocked: bool = False
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

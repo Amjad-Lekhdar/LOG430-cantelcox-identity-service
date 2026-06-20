@@ -12,18 +12,28 @@ from app.modules.users.application.use_cases import (
     ListUsersUseCase,
     LoginUseCase,
     LogoutUseCase,
+    RequestMfaUseCase,
     UpdateUserStatusUseCase,
+    VerifyMfaUseCase,
 )
-from app.modules.users.infrastructure.repositories import SQLAlchemyUserRepository, auth_session_repository
+from app.modules.users.infrastructure.repositories import (
+    SQLAlchemyUserRepository,
+    auth_session_repository,
+    mfa_challenge_repository,
+    mfa_login_token_repository,
+)
 from app.modules.users.interfaces.api.schemas import (
     AuthResponse,
     CreateAccountRequest,
     CreateUserRequest,
     LoginRequest,
+    MfaChallengeResponse,
+    MfaRequest,
     OAuthTokenResponse,
     LogoutResponse,
     UpdateUserStatusRequest,
     UserResponse,
+    VerifyMfaRequest,
 )
 
 router = APIRouter(prefix="/v1/users", tags=["Users"])
@@ -69,6 +79,7 @@ def create_account(
         user = CreateAccountUseCase(user_repository).execute(
             email=payload.email,
             full_name=payload.full_name,
+            phone_number=payload.phone_number,
             password=payload.password,
         )
     except ValueError as exc:
@@ -76,13 +87,17 @@ def create_account(
     return _user_response(user)
 
 
-@auth_router.post("/login", response_model=AuthResponse)
+@auth_router.post("/login", response_model=MfaChallengeResponse)
 def login(
     payload: LoginRequest,
     user_repository: SQLAlchemyUserRepository = Depends(get_user_repository),
-) -> AuthResponse:
+) -> MfaChallengeResponse:
     try:
-        result = LoginUseCase(user_repository, auth_session_repository).execute(
+        result = LoginUseCase(
+            user_repository,
+            mfa_challenge_repository,
+            mfa_login_token_repository,
+        ).execute(
             email=payload.email,
             password=payload.password,
         )
@@ -90,27 +105,84 @@ def login(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if result is None:
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    user, token = result
-    return AuthResponse(access_token=token, user=_user_response(user))
+    return MfaChallengeResponse(
+        challenge_id=result.challenge.id,
+        user_id=result.user.id if result.user is not None else None,
+        login_token=result.login_token,
+        expires_at=result.challenge.expires_at,
+        remaining_attempts=result.challenge.max_attempts,
+        debug_otp=result.code,
+    )
+
+
+@auth_router.post("/mfa/request", response_model=MfaChallengeResponse)
+def request_mfa(
+    payload: MfaRequest,
+    login_token: str = Depends(oauth2_scheme),
+    user_repository: SQLAlchemyUserRepository = Depends(get_user_repository),
+) -> MfaChallengeResponse:
+    try:
+        result = RequestMfaUseCase(
+            user_repository,
+            mfa_challenge_repository,
+            mfa_login_token_repository,
+        ).execute(
+            login_token=login_token,
+            user_id=payload.user_id,
+            channel=payload.channel,
+            destination=payload.destination,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid MFA login token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return MfaChallengeResponse(
+        challenge_id=result.challenge.id,
+        user_id=payload.user_id,
+        expires_at=result.challenge.expires_at,
+        channel=result.channel,
+        destination=result.destination,
+        remaining_attempts=result.challenge.max_attempts,
+        debug_otp=result.code,
+    )
+
+
+@auth_router.post("/mfa/verify", response_model=AuthResponse)
+def verify_mfa(
+    payload: VerifyMfaRequest,
+    user_repository: SQLAlchemyUserRepository = Depends(get_user_repository),
+) -> AuthResponse:
+    result = VerifyMfaUseCase(
+        user_repository,
+        auth_session_repository,
+        mfa_challenge_repository,
+    ).execute(challenge_id=payload.challenge_id, code=payload.code)
+    if result.status == "blocked":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Maximum MFA attempts reached; validation is temporarily blocked",
+        )
+    if result.status != "success" or result.user is None or result.access_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired MFA code",
+        )
+    return AuthResponse(access_token=result.access_token, user=_user_response(result.user))
 
 
 @auth_router.post("/token", response_model=OAuthTokenResponse)
 def token(
     form_data: OAuth2PasswordRequestForm = Depends(),
-    user_repository: SQLAlchemyUserRepository = Depends(get_user_repository),
 ) -> OAuthTokenResponse:
-    result = LoginUseCase(user_repository, auth_session_repository).execute(
-        email=form_data.username,
-        password=form_data.password,
+    _ = form_data
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="MFA required; use /v1/auth/login then /v1/auth/mfa/verify",
     )
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    _, access_token = result
-    return OAuthTokenResponse(access_token=access_token)
 
 
 @auth_router.get("/me", response_model=UserResponse)
@@ -135,6 +207,7 @@ def create_user(
         user = CreateUserUseCase(user_repository).execute(
             email=payload.email,
             full_name=payload.full_name,
+            phone_number=payload.phone_number,
             role=payload.role,
         )
     except ValueError as exc:
