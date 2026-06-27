@@ -110,6 +110,7 @@ def login(
         user_id=result.user.id if result.user is not None else None,
         login_token=result.login_token,
         token_login=result.login_token,
+        token=result.login_token,
         expires_at=result.challenge.expires_at,
         remaining_attempts=result.challenge.max_attempts,
         debug_otp=result.code,
