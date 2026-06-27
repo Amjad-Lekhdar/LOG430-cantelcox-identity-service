@@ -51,6 +51,7 @@ class MfaChallengeResponse(BaseModel):
     challenge_id: str
     user_id: UUID | None = None
     login_token: str | None = None
+    token_login: str | None = None
     expires_at: datetime
     channel: str = "simulated"
     destination: str | None = None

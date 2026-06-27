@@ -114,6 +114,7 @@ Example response:
   "challenge_id": "challenge-token",
   "user_id": "user-id",
   "login_token": "temporary-login-token",
+  "token_login": "temporary-login-token",
   "expires_at": "2026-06-20T20:30:00Z",
   "channel": "simulated",
   "remaining_attempts": 3,
