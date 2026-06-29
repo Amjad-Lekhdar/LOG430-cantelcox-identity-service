@@ -1,36 +1,19 @@
 import logging
 import os
 from dataclasses import dataclass
-from typing import Protocol
 from uuid import UUID, uuid4
 
-from app.modules.users.domain.entities import MfaChallenge, User
-from app.modules.users.domain.services import MfaService, PasswordService, UserDomainService
-from app.modules.users.domain.value_objects import UserRole
-from app.modules.users.infrastructure.repositories import (
+from app.modules.users.application.ports import (
     AuthSessionRepository,
     MfaChallengeRepository,
     MfaLoginTokenRepository,
+    UserRepository,
 )
+from app.modules.users.domain.entities import MfaChallenge, User
+from app.modules.users.domain.services import MfaService, PasswordService, UserDomainService
+from app.modules.users.domain.value_objects import UserRole
 
 logger = logging.getLogger(__name__)
-
-
-class UserRepository(Protocol):
-    def add(self, user: User) -> User:
-        pass
-
-    def update(self, user: User) -> User:
-        pass
-
-    def list(self) -> list[User]:
-        pass
-
-    def get(self, user_id: UUID) -> User | None:
-        pass
-
-    def get_by_email(self, email: str) -> User | None:
-        pass
 
 
 @dataclass

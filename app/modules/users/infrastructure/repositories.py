@@ -5,12 +5,18 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.modules.users.application.ports import (
+    AuthSessionRepository as AuthSessionRepositoryPort,
+    MfaChallengeRepository as MfaChallengeRepositoryPort,
+    MfaLoginTokenRepository as MfaLoginTokenRepositoryPort,
+    UserRepository,
+)
 from app.modules.users.domain.services import MfaService, PasswordService
 from app.modules.users.domain.entities import MfaChallenge, User
 from app.modules.users.infrastructure.models import UserModel
 
 
-class SQLAlchemyUserRepository:
+class SQLAlchemyUserRepository(UserRepository):
     def __init__(self, session: Session) -> None:
         self._session = session
 
@@ -97,7 +103,7 @@ def seed_admin_user(session: Session) -> None:
     repository.add(admin)
 
 
-class InMemoryUserRepository:
+class InMemoryUserRepository(UserRepository):
     def __init__(self) -> None:
         self._users: dict[UUID, User] = {}
 
@@ -120,7 +126,7 @@ class InMemoryUserRepository:
         return next((user for user in self._users.values() if user.email == normalized_email), None)
 
 
-class AuthSessionRepository:
+class AuthSessionRepository(AuthSessionRepositoryPort):
     def __init__(self) -> None:
         self._sessions: dict[str, UUID] = {}
 
@@ -136,7 +142,7 @@ class AuthSessionRepository:
         return self._sessions.pop(token, None) is not None
 
 
-class MfaLoginTokenRepository:
+class MfaLoginTokenRepository(MfaLoginTokenRepositoryPort):
     def __init__(self) -> None:
         self._tokens: dict[str, UUID] = {}
 
@@ -152,7 +158,7 @@ class MfaLoginTokenRepository:
         return self._tokens.pop(token, None) is not None
 
 
-class MfaChallengeRepository:
+class MfaChallengeRepository(MfaChallengeRepositoryPort):
     def __init__(self, ttl_seconds: int = 300, max_attempts: int = 3) -> None:
         self._ttl_seconds = ttl_seconds
         self._max_attempts = max_attempts
