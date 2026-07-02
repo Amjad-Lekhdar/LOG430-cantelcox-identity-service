@@ -5,6 +5,9 @@ venv/
 # Python cache files
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Local environment variables
 .env

@@ -17,6 +17,18 @@ Swagger:
 http://127.0.0.1:8020/docs
 ```
 
+## Tests and coverage
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m pytest
+```
+
+The terminal output includes missing lines, and an HTML report is generated in
+`htmlcov/index.html`.
+
 ## Run with PostgreSQL
 
 ```bash
